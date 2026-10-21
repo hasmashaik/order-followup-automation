@@ -7,7 +7,7 @@ const db = require('./db');
 
 const app = express();
 
-// ---- CORS: allow one or many origins from CLIENT_URL ----
+
 const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
   .split(',')
   .map((s) => s.trim())
@@ -16,7 +16,7 @@ const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
 app.use(
   cors({
     origin: (origin, cb) => {
-      // allow tools like curl / Postman (no origin header)
+      
       if (!origin) return cb(null, true);
       if (allowedOrigins.includes(origin)) return cb(null, true);
       return cb(new Error(`CORS blocked: ${origin}`));
@@ -45,11 +45,11 @@ async function bootstrap() {
   const schemaPath = path.join(__dirname, 'schema.sql');
   if (fs.existsSync(schemaPath)) {
     await db.query(fs.readFileSync(schemaPath, 'utf8'));
-    console.log('✅ Schema ensured');
+    console.log('Schema ensured');
   }
   const port = process.env.PORT || 5000;
   app.listen(port, () =>
-    console.log(`🚀 Backend running on http://localhost:${port} (${process.env.NODE_ENV})`)
+    console.log(` Backend running on http://localhost:${port} (${process.env.NODE_ENV})`)
   );
 }
 

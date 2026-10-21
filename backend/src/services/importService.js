@@ -30,7 +30,7 @@ async function importOrders(filePath, uploadedBy = 'manager') {
     const mapped = mapRow(rawRow);
     const { errors, parsed } = validateRow(mapped);
 
-    // Duplicate detection within the same file
+    
     let isDuplicate = false;
     if (parsed.order_id && seenOrderIds.has(parsed.order_id)) {
       isDuplicate = true;
@@ -39,7 +39,7 @@ async function importOrders(filePath, uploadedBy = 'manager') {
       seenOrderIds.add(parsed.order_id);
     }
 
-    // Duplicate detection against DB
+    
     if (parsed.order_id && !isDuplicate) {
       const existing = await db.query(
         'SELECT id FROM orders WHERE order_id = $1 LIMIT 1',
@@ -84,7 +84,7 @@ async function importOrders(filePath, uploadedBy = 'manager') {
     insertedOrders.push(insert.rows[0]);
   }
 
-  // Run rule engine on the imported orders
+
   const ruleSummary = await runRuleEngine(insertedOrders, uploadedBy);
 
   return { batchId, results, ruleSummary };

@@ -1,9 +1,9 @@
+const CLASS_MAP = {
+  Open: 'badge-open',
+  'In Progress': 'badge-progress',
+  Resolved: 'badge-resolved',
+};
+
 export default function StatusBadge({ status }) {
-  const cls =
-    status === 'Open'
-      ? 'badge-open'
-      : status === 'In Progress'
-      ? 'badge-progress'
-      : 'badge-resolved';
-  return <span className={`badge ${cls}`}>{status}</span>;
+  return <span className={`badge ${CLASS_MAP[status] || 'badge-open'}`}>{status}</span>;
 }

@@ -1,7 +1,7 @@
 const db = require('../db');
 const RULES = require('../config/rules');
 
-// ---------- helpers ----------
+
 function hoursBetween(a, b) {
   return (b.getTime() - a.getTime()) / (1000 * 60 * 60);
 }
@@ -25,11 +25,11 @@ function buildException({ order, type, reason, priority, action, deadlineHours }
   };
 }
 
-// Evaluate all 5 mandatory rules for one order row
+
 function evaluateOrder(order, now = new Date()) {
   const exceptions = [];
 
-  // Skip rows needing data correction – flag them instead of an order exception
+ 
   if (order.needs_data_correction || order.is_duplicate) return exceptions;
 
   const status = (order.order_status || '').toLowerCase();

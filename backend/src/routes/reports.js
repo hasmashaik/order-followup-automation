@@ -5,7 +5,7 @@ const Papa = require('papaparse');
 
 router.get('/daily.csv', async (req, res, next) => {
   try {
-    // "New" = created today (last 24h)
+    
     const newExceptions = await db.query(
       `SELECT * FROM tasks WHERE created_at >= NOW() - INTERVAL '24 hours'`
     );

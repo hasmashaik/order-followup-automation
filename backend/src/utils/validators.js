@@ -11,7 +11,7 @@ const REQUIRED_FIELDS = [
   'assigned_employee',
 ];
 
-// Column name aliases (accepts several header spellings)
+
 const FIELD_ALIASES = {
   order_id: ['order id', 'orderid', 'order_id', 'order-id'],
   order_date: ['order date', 'orderdate', 'order_date', 'order-date'],

@@ -3,16 +3,20 @@ import { ShoppingCart, AlertCircle, Clock, TrendingUp, CheckCircle2, RefreshCw }
 import { getDashboard } from '../api';
 import Spinner from '../components/Spinner.jsx';
 
+const REFRESH_MS = 30000;
+
 export default function DashboardPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
+  const [updatedAt, setUpdatedAt] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const res = await getDashboard();
       setData(res.data);
+      setUpdatedAt(new Date());
       setErr('');
     } catch (e) {
       setErr(e?.response?.data?.error || e.message);
@@ -21,49 +25,71 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // Load on mount + auto-refresh every 30 seconds
+  
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 30000);
+    const interval = setInterval(() => {
+      if (!document.hidden) loadData();
+    }, REFRESH_MS);
     return () => clearInterval(interval);
   }, [loadData]);
 
-  if (loading && !data) return <Spinner text="Loading dashboard data..." />;
-  if (err) return <div className="alert alert-error">{err}</div>;
+  if (!data && loading) return <Spinner text="Loading dashboard data..." />;
+  if (!data && err) {
+    return (
+      <div>
+        <div className="alert alert-error"><AlertCircle size={20} /> <span className="grow">{err}</span></div>
+        <button onClick={loadData}><RefreshCw size={16} /> Try again</button>
+      </div>
+    );
+  }
+
+  const { totals, exceptionsByCategory = [], employeePending = [], highPriorityCases = [] } = data;
+  const maxCategory = Math.max(1, ...exceptionsByCategory.map((r) => Number(r.count) || 0));
+  const maxPending = Math.max(1, ...employeePending.map((r) => Number(r.pending) || 0));
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+      <div className="page-header">
         <div>
           <h1>Overview Dashboard</h1>
           <p className="subtitle">Real-time snapshot of your order exceptions and team workload.</p>
         </div>
-        <button className="secondary" onClick={loadData} disabled={loading} title="Refresh Data">
-          <RefreshCw size={18} className={loading ? 'spinner' : ''} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-          Refresh
-        </button>
+        <div className="header-actions">
+          
+          <button className="secondary" onClick={loadData} disabled={loading} title="Refresh data">
+            <RefreshCw size={16} className={loading ? 'spinner' : ''} /> Refresh
+          </button>
+        </div>
       </div>
 
+      {err && <div className="alert alert-error"><AlertCircle size={20} /> <span className="grow">Couldn't refresh: {err}</span></div>}
+
       <div className="grid-4">
-        <StatCard title="Total Orders" value={data.totals.totalOrders} icon={<ShoppingCart size={20} />} color="#4f46e5" bg="#e0e7ff" />
-        <StatCard title="Needs Attention" value={data.totals.ordersRequiringAttention} icon={<AlertCircle size={20} />} color="#ef4444" bg="#fee2e2" />
-        <StatCard title="Open Tasks" value={data.totals.openTasks} icon={<Clock size={20} />} color="#f59e0b" bg="#fef3c7" />
-        <StatCard title="Overdue Tasks" value={data.totals.overdueTasks} icon={<TrendingUp size={20} />} color="#be123c" bg="#ffe4e6" />
+        <StatCard title="Total Orders" value={totals.totalOrders} hint="All uploaded orders" icon={<ShoppingCart size={18} />} color="#4f46e5" bg="#eef2ff" />
+        <StatCard title="Needs Attention" value={totals.ordersRequiringAttention} hint="Orders with open exceptions" icon={<AlertCircle size={18} />} color="#dc2626" bg="#fee2e2" />
+        <StatCard title="Open Tasks" value={totals.openTasks} hint="Awaiting resolution" icon={<Clock size={18} />} color="#d97706" bg="#fef3c7" />
+        <StatCard title="Overdue Tasks" value={totals.overdueTasks} hint="Past their deadline" icon={<TrendingUp size={18} />} color="#be123c" bg="#ffe4e6" />
       </div>
 
       <div className="grid-2">
         <div className="card">
-          <h2><AlertCircle size={20} color="#ef4444" /> Exceptions by Category</h2>
+          <div className="card-header">
+            <h2><span className="icon-chip" style={{ background: '#fee2e2', color: '#dc2626' }}><AlertCircle size={17} /></span> Exceptions by Category</h2>
+          </div>
           <div className="table-wrapper">
             <table>
-              <thead><tr><th>Category</th><th>Count</th></tr></thead>
+              <thead><tr><th>Category</th><th className="num">Count</th></tr></thead>
               <tbody>
-                {data.exceptionsByCategory.length === 0 ? (
-                  <tr><td colSpan="2" style={{ textAlign: 'center', color: '#64748b' }}>No open exceptions</td></tr>
-                ) : data.exceptionsByCategory.map((r) => (
+                {exceptionsByCategory.length === 0 ? (
+                  <tr className="empty-row"><td colSpan="2">No open exceptions 🎉</td></tr>
+                ) : exceptionsByCategory.map((r) => (
                   <tr key={r.exception_type}>
-                    <td style={{ fontWeight: 500 }}>{r.exception_type}</td>
-                    <td><span className="badge badge-medium">{r.count}</span></td>
+                    <td>
+                      <div className="cell-strong">{r.exception_type}</div>
+                      <Bar value={r.count} max={maxCategory} color="#f59e0b" />
+                    </td>
+                    <td className="num"><span className="badge plain badge-medium">{r.count}</span></td>
                   </tr>
                 ))}
               </tbody>
@@ -72,17 +98,27 @@ export default function DashboardPage() {
         </div>
 
         <div className="card">
-          <h2><CheckCircle2 size={20} color="#10b981" /> Employee Pending Tasks</h2>
+          <div className="card-header">
+            <h2><span className="icon-chip" style={{ background: '#d1fae5', color: '#059669' }}><CheckCircle2 size={17} /></span> Employee Pending Tasks</h2>
+          </div>
           <div className="table-wrapper">
             <table>
-              <thead><tr><th>Employee</th><th>Pending Tasks</th></tr></thead>
+              <thead><tr><th>Employee</th><th className="num">Pending</th></tr></thead>
               <tbody>
-                {data.employeePending.length === 0 ? (
-                  <tr><td colSpan="2" style={{ textAlign: 'center', color: '#64748b' }}>No pending tasks</td></tr>
-                ) : data.employeePending.map((r) => (
+                {employeePending.length === 0 ? (
+                  <tr className="empty-row"><td colSpan="2">No pending tasks</td></tr>
+                ) : employeePending.map((r) => (
                   <tr key={r.assigned_employee}>
-                    <td style={{ fontWeight: 500 }}>{r.assigned_employee}</td>
-                    <td><span className="badge badge-open">{r.pending}</span></td>
+                    <td>
+                      <div className="avatar-cell">
+                        <span className="avatar">{initials(r.assigned_employee)}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="cell-strong">{r.assigned_employee}</div>
+                          <Bar value={r.pending} max={maxPending} color="#4f46e5" />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="num"><span className="badge plain badge-open">{r.pending}</span></td>
                   </tr>
                 ))}
               </tbody>
@@ -92,21 +128,23 @@ export default function DashboardPage() {
       </div>
 
       <div className="card">
-        <h2><AlertCircle size={20} color="#ef4444" /> High-Priority Cases</h2>
+        <div className="card-header">
+          <h2><span className="icon-chip" style={{ background: '#fee2e2', color: '#dc2626' }}><AlertCircle size={17} /></span> High-Priority Cases</h2>
+        </div>
         <div className="table-wrapper">
           <table>
             <thead>
               <tr><th>Order ID</th><th>Exception Type</th><th>Assigned To</th><th>Deadline</th></tr>
             </thead>
             <tbody>
-              {data.highPriorityCases.length === 0 ? (
-                <tr><td colSpan="4" style={{ textAlign: 'center', color: '#64748b', padding: '24px' }}>No high-priority cases</td></tr>
-              ) : data.highPriorityCases.map((t) => (
+              {highPriorityCases.length === 0 ? (
+                <tr className="empty-row"><td colSpan="4">No high-priority cases</td></tr>
+              ) : highPriorityCases.map((t) => (
                 <tr key={t.id}>
-                  <td style={{ fontWeight: 600 }}>{t.order_id}</td>
+                  <td className="cell-strong mono">{t.order_id}</td>
                   <td>{t.exception_type}</td>
                   <td>{t.assigned_employee}</td>
-                  <td style={{ color: '#ef4444', fontWeight: 500 }}>
+                  <td style={{ color: '#dc2626', fontWeight: 600 }}>
                     {t.deadline ? new Date(t.deadline).toLocaleString() : '—'}
                   </td>
                 </tr>
@@ -119,16 +157,28 @@ export default function DashboardPage() {
   );
 }
 
-function StatCard({ title, value, icon, color, bg }) {
+function initials(name = '') {
+  return String(name).split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0].toUpperCase()).join('') || '?';
+}
+
+function Bar({ value, max, color }) {
+  const pct = Math.max(4, Math.round(((Number(value) || 0) / max) * 100));
   return (
-    <div className="card stat-card" style={{ marginBottom: 0 }}>
-      <div className="stat-title">
-        <div style={{ background: bg, color: color, padding: '10px', borderRadius: '8px', display: 'flex' }}>
-          {icon}
-        </div>
-        {title}
+    <div style={{ height: 5, borderRadius: 9999, background: '#eef1f6', marginTop: 8, overflow: 'hidden' }}>
+      <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 9999, transition: 'width 0.4s ease' }} />
+    </div>
+  );
+}
+
+function StatCard({ title, value, hint, icon, color, bg }) {
+  return (
+    <div className="card stat-card" style={{ '--accent': color }}>
+      <div className="stat-top">
+        <span className="stat-title">{title}</span>
+        <span className="icon-chip" style={{ background: bg, color }}>{icon}</span>
       </div>
-      <div className="stat-value">{value}</div>
+      <div className="stat-value">{value ?? 0}</div>
+      <div className="stat-hint">{hint}</div>
     </div>
   );
 }

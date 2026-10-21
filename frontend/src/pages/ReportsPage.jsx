@@ -1,11 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Download, History, RefreshCw } from 'lucide-react';
+import { Download, History, RefreshCw, FileText, AlertCircle } from 'lucide-react';
 import { downloadDailyReport, getAudit } from '../api';
 import Spinner from '../components/Spinner.jsx';
+import { useToast } from '../components/Toast.jsx';
 
 export default function ReportsPage() {
+  const toast = useToast();
   const [audit, setAudit] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
   const [err, setErr] = useState('');
 
   const loadAudit = useCallback(async () => {
@@ -23,40 +26,70 @@ export default function ReportsPage() {
 
   useEffect(() => { loadAudit(); }, [loadAudit]);
 
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      await downloadDailyReport();
+      toast.success('Daily report download started');
+    } catch (e) {
+      toast.error('Download failed: ' + (e?.response?.data?.error || e.message));
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+      <div className="page-header">
         <div>
-          <h1>Reports & Audit Trail</h1>
+          <h1>Reports &amp; Audit Trail</h1>
           <p className="subtitle">Download operational data and review system history.</p>
         </div>
-        <button className="secondary" onClick={loadAudit} disabled={loading}>
-          <RefreshCw size={18} className={loading ? 'spinner' : ''} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} /> Refresh
-        </button>
+        <div className="header-actions">
+          <button className="secondary" onClick={loadAudit} disabled={loading}>
+            <RefreshCw size={16} className={loading ? 'spinner' : ''} /> Refresh
+          </button>
+        </div>
       </div>
 
-      <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <h2 style={{ marginBottom: '4px' }}>Daily Exception Report</h2>
-          <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>Contains new exceptions, unresolved tasks, overdue tasks, and employee workload.</p>
+      <div className="card">
+        <div className="card-body" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+            <span className="icon-chip" style={{ background: '#d1fae5', color: '#059669', width: 42, height: 42, borderRadius: 12 }}>
+              <FileText size={20} />
+            </span>
+            <div>
+              <h2>Daily Exception Report</h2>
+              <p className="card-sub" style={{ maxWidth: 520 }}>
+                Contains new exceptions, unresolved tasks, overdue tasks, and employee workload.
+              </p>
+            </div>
+          </div>
+          <button className="success" onClick={handleDownload} disabled={downloading}>
+            <Download size={16} /> {downloading ? 'Preparing...' : 'Download CSV'}
+          </button>
         </div>
-        <button onClick={downloadDailyReport} style={{ background: '#10b981' }}>
-          <Download size={18} /> Download CSV
-        </button>
       </div>
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '24px 24px 16px 24px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #e2e8f0' }}>
-          <History size={20} /> <h2 style={{ margin: 0 }}>Audit Trail</h2>
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <h2><span className="icon-chip" style={{ background: '#eef2ff', color: '#4f46e5' }}><History size={17} /></span> Audit Trail</h2>
+            {audit.length > 0 && <div className="card-sub" style={{ marginLeft: 42 }}>{audit.length} recorded {audit.length === 1 ? 'action' : 'actions'}</div>}
+          </div>
         </div>
-        
-        {err && <div className="alert alert-error" style={{ margin: '24px 24px 0 24px' }}>{err}</div>}
-        
+
+        {err && (
+          <div className="alert alert-error" style={{ margin: '20px 22px 0' }}>
+            <AlertCircle size={20} /> <span className="grow">{err}</span>
+          </div>
+        )}
+
         {loading && audit.length === 0 ? (
           <Spinner text="Loading audit history..." />
         ) : (
-          <div className="table-wrapper" style={{ border: 'none', borderRadius: 0 }}>
-            <table>
+          <div className="table-wrapper">
+            <table style={{ minWidth: 760 }}>
               <thead>
                 <tr>
                   <th>Timestamp</th>
@@ -69,14 +102,14 @@ export default function ReportsPage() {
               </thead>
               <tbody>
                 {audit.length === 0 ? (
-                  <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>No audit records yet.</td></tr>
+                  <tr className="empty-row"><td colSpan="6">No audit records yet.</td></tr>
                 ) : audit.map((a) => (
                   <tr key={a.id}>
-                    <td style={{ color: '#64748b', fontSize: '13px' }}>{new Date(a.created_at).toLocaleString()}</td>
-                    <td style={{ fontWeight: 600 }}>{a.order_id}</td>
-                    <td><span className="badge badge-open">{a.action}</span></td>
-                    <td style={{ color: '#64748b' }}>{a.from_value || '—'}</td>
-                    <td style={{ color: '#64748b' }}>{a.to_value || '—'}</td>
+                    <td style={{ color: 'var(--text-muted)', fontSize: 13, whiteSpace: 'nowrap' }}>{new Date(a.created_at).toLocaleString()}</td>
+                    <td className="cell-strong mono">{a.order_id}</td>
+                    <td><span className="badge plain badge-open">{a.action}</span></td>
+                    <td style={{ color: 'var(--text-muted)' }}>{a.from_value || '—'}</td>
+                    <td style={{ color: 'var(--text-muted)' }}>{a.to_value || '—'}</td>
                     <td>{a.performed_by}</td>
                   </tr>
                 ))}
