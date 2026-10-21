@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Env
+.env
+.env.local
+*.env
+!*.env.example
+
+# Uploads
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Build
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Node
+.cache/
+coverage/
